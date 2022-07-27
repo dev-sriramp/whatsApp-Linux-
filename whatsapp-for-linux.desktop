@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=WhatsApp For Linux
+Comment=Whatsapp Desktop for Linux
+Exec=zapzap
+Icon=whatsapp.png
+Type=Application
+Categories=Chat;Network;InstantMessaging;Qt;
+Keywords=whatsapp;chat;im;messaging;messenger;sms;
+Terminal=false
+SingleMainWindow=true
+X-GNOME-UsesNotifications=true
+X-GNOME-SingleWindow=true

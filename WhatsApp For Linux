@@ -1,0 +1,147 @@
+import os
+import sys
+from PyQt6.QtWidgets import QMainWindow, QApplication, QLabel
+from PyQt6.QtCore import QUrl
+from PyQt6.QtWebEngineCore import (
+    QWebEnginePage,
+    QWebEngineDownloadRequest,
+    QWebEngineProfile,
+    QWebEngineSettings,
+)
+from PyQt6.QtWebEngineWidgets import QWebEngineView
+from PyQt6.QtCore import Qt, QUrl, QStandardPaths, QSettings, QLocale, QThreadPool
+from PyQt6.QtCore import QEvent, Qt, QUrl, QSettings
+from PyQt6.QtGui import QDesktopServices, QIcon, QPalette
+from PyQt6.QtWebEngineCore import QWebEnginePage
+from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QFileDialog, QMenu
+import getTheme
+import web
+import notification as Notification
+
+
+class MainWindow(QMainWindow):
+    def __init__(self, *args, **kwargs):
+        super(MainWindow, self).__init__(*args, **kwargs)
+        self.setWindowIcon(QIcon("logo.png"))
+        self.showMaximized()
+        self.webview = QWebEngineView()
+        self.webpage = QWebEnginePage(self.webview)
+        self.settings = QSettings("WhatsApp For Linux", "WhatsApp For Linux", self)
+        Notification.init("WhatsApp For Linux")
+        self.useragent = QWebEngineProfile("whatsapp-web", self.webview)
+        self.agent = "Safari/537.36 Mozilla/5.0 (X11; Linux x86_64) Chrome/103.0.5060.114 Edg/103.0.1264.51 AppleWebKit/537.36 (KHTML, like Gecko)"
+        self.useragent.setHttpUserAgent(self.agent)
+        self.useragent.downloadRequested.connect(self.download)
+        self.whats = web.WhatsApp(self.useragent, self)
+        self.webview.setPage(self.whats)
+        self.webview.load(QUrl("https://web.whatsapp.com"))
+        self.setCentralWidget(self.webview)
+        self.webview.settings().setAttribute(
+            QWebEngineSettings.WebAttribute.JavascriptEnabled, True
+        )
+        self.useragent.setNotificationPresenter(self.show_notification)
+        self.webview.settings().setAttribute(
+            QWebEngineSettings.WebAttribute.JavascriptCanOpenWindows, True
+        )
+        self.webview.settings().setAttribute(
+            QWebEngineSettings.WebAttribute.PluginsEnabled, True
+        )
+        self.webview.settings().setAttribute(
+            QWebEngineSettings.WebAttribute.PdfViewerEnabled, True
+        )
+        self.webview.settings().setAttribute(
+            QWebEngineSettings.WebAttribute.AutoLoadImages, True
+        )
+        self.webview.settings().setAttribute(
+            QWebEngineSettings.WebAttribute.PluginsEnabled, True
+        )
+        self.webview.settings().setAttribute(
+            QWebEngineSettings.WebAttribute.LocalStorageEnabled, True
+        )
+
+    def download(self, download):
+        if (
+            download.state()
+            == QWebEngineDownloadRequest.DownloadState.DownloadRequested
+        ):
+            path, _ = QFileDialog.getSaveFileName(
+                self, self.webview.tr("Save file"), download.downloadFileName()
+            )
+            if path:
+                download.setDownloadDirectory(os.path.dirname(path))
+                download.setDownloadFileName(os.path.basename(path))
+                download.url().setPath(path)
+                download.accept()
+
+    def show_notification(self, notification):
+        """
+        Create a notification through the DBus.Notification for the system.
+        When you click on it, the window will open.
+        """
+
+        if self.settings.value("notification/app", True, bool):
+            try:
+                title = (
+                    notification.title()
+                    if self.settings.value("notification/show_name", True, bool)
+                    else "WhatsApp For Linux"
+                )
+                message = (
+                    notification.message()
+                    if self.settings.value("notification/show_msg", True, bool)
+                    else "New message..."
+                )
+                icon = (
+                    self.getPathImage(notification.icon(), notification.title())
+                    if self.settings.value("notification/show_photo", True, bool)
+                    else "com.dev.sriramp.whatsappLinux"
+                )
+
+                n = Notification.Notification(title, message, timeout=3000)
+                n.setUrgency(Notification.Urgency.NORMAL)
+                n.setCategory("im.received")
+                n.setIconPath(icon)
+                n.setHint("desktop-entry", "com.dev.sriramp.whatsappLinux")
+                n.show()
+            except Exception as e:
+                print(e)
+
+    def getPathImage(self, qin, title):
+        """
+        To show an image in notifications on dbus it is necessary that the image exists in a directory.
+        So the contact image is saved in a temporary folder (tmp) in the application data folder
+        """
+        try:
+            path = "logo.png"
+
+            qout = QImage(qin.width(), qin.height(), QImage.Format.Format_ARGB32)
+            qout.fill(Qt.GlobalColor.transparent)
+
+            brush = QBrush(qin)
+
+            pen = QPen()
+            pen.setColor(Qt.GlobalColor.darkGray)
+            pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+
+            painter = QPainter(qout)
+            painter.setBrush(brush)
+            painter.setPen(pen)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+            painter.drawRoundedRect(
+                0, 0, qin.width(), qin.height(), qin.width() // 2, qin.height() // 2
+            )
+            painter.end()
+            c = qout.save(path)
+            if c == False:
+                return "com.dev.sriramp.whatsappLinux"
+            else:
+                return path
+        except:
+            return "com.dev.sriramp.whatsappLinux"
+
+
+app = QApplication(sys.argv)
+window = MainWindow()
+window.setWindowTitle("WhatsApp For Linux")
+app.exec()
